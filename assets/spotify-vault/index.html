@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<title>Spotify Vault</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">♫</div>
+      <div>
+        <h1>Spotify Vault</h1>
+        <p id="subtitle">Seu banco local de reproduções</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="btnSync" class="btn primary small" title="Sincronizar agora (50 últimas)">↻ Sync</button>
+      <span id="syncStatus" class="badge">—</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="timeline" class="tab active">Linha do Tempo</button>
+    <button data-tab="insights" class="tab">Insights</button>
+    <button data-tab="library" class="tab">Acervo</button>
+    <button data-tab="config" class="tab">Config</button>
+  </nav>
+
+  <!-- TIMELINE -->
+  <section id="tab-timeline" class="panel active">
+    <div class="card">
+      <div class="row">
+        <div class="field grow">
+          <label>Escolha o dia</label>
+          <input id="datePicker" type="date">
+        </div>
+        <button id="btnToday" class="btn ghost">Hoje</button>
+        <button id="btnYesterday" class="btn ghost">Ontem</button>
+      </div>
+      <div id="datesChips" class="chips"></div>
+      <div id="daySummary" class="summary"></div>
+    </div>
+    <div id="timelineList" class="timeline"></div>
+    <div id="timelineEmpty" class="empty hidden">
+      <div class="empty-icon">∅</div>
+      <h3>Nenhuma reprodução neste dia</h3>
+      <p>Faça um Sync ou importe seu histórico estendido.<br>Último sync: <span id="emptyLastSync">—</span></p>
+      <button class="btn primary" onclick="doSync()">Sincronizar agora</button>
+    </div>
+  </section>
+
+  <!-- INSIGHTS -->
+  <section id="tab-insights" class="panel">
+    <div class="grid stats">
+      <div class="stat"><span class="stat-val" id="statPlays">0</span><span class="stat-label">plays</span></div>
+      <div class="stat"><span class="stat-val" id="statHours">0h</span><span class="stat-label">horas</span></div>
+      <div class="stat"><span class="stat-val" id="statTracks">0</span><span class="stat-label">músicas únicas</span></div>
+      <div class="stat"><span class="stat-val" id="statArtists">0</span><span class="stat-label">artistas</span></div>
+    </div>
+    <div class="card" id="favoritesCard">
+      <h3>⭐ Favoritos <span style="font-weight:400;color:var(--muted);font-size:11px">• artista em tempo • música em execuções • Brasília</span></h3>
+      <div id="favoritesGrid" class="fav-grid"></div>
+      <p class="hint">Dia = hoje 00:00 • Semana = últimos 7 dias • Mês/Ano = atual • Vida = tudo</p>
+    </div>
+    <div class="card" id="peakDayCard" style="display:none">
+      <h3>📅 Dia do ano que mais escutou</h3>
+      <div id="peakDayContent"></div>
+    </div>
+    <div class="card" id="topSingleDayCard" style="display:none">
+      <h3>🔥 Top-3 músicas mais repetidas em um único dia</h3>
+      <p class="hint">Historicamente, quais faixas você mais repetiu em 24h (Brasília) • data + qtd plays</p>
+      <div id="topSingleDayList" class="list compact"></div>
+    </div>
+    <div class="card highlight" id="personalityCard" style="display:none">
+      <h3>✨ Seu perfil musical (Brasília)</h3>
+      <p id="personalityDesc" style="font-size:13px;line-height:1.5;margin:6px 0"></p>
+      <div id="personalityBadges" class="chips"></div>
+      <p class="hint" id="personalitySub"></p>
+    </div>
+
+    <div class="row two">
+      <div class="card grow" id="daypartCard">
+        <h3>Seu ritmo no dia</h3>
+        <canvas id="chartDaypart" height="140"></canvas>
+        <div id="daypartLegend" class="chips" style="justify-content:center"></div>
+        <p class="hint">Horário de Brasília • <span id="peakPeriod">—</span></p>
+      </div>
+      <div class="card grow" id="streakCard">
+        <h3>Streaks & marcos</h3>
+        <div id="streakInfo" class="summary"></div>
+        <div id="milestones" class="list compact"></div>
+      </div>
+    </div>
+
+    <details class="card" id="monthlyCard" open>
+      <summary>Evolução mensal (últimos 12 meses)</summary>
+      <canvas id="chartMonthly" height="120"></canvas>
+      <div id="monthlyTop" class="chips"></div>
+    </details>
+
+    <details class="card" open>
+      <summary>Atividade nos últimos 30 dias</summary>
+      <canvas id="chartDaily" height="120"></canvas>
+    </details>
+    <details class="card" open>
+      <summary>Quando você ouve? (por hora do dia - Brasília)</summary>
+      <canvas id="chartHourly" height="120"></canvas>
+      <p class="hint">Pico: <span id="peakHour">—</span> • Fuso America/Sao_Paulo</p>
+    </details>
+    <div class="row two">
+      <div class="card grow">
+        <h3>Top músicas</h3>
+        <div id="topTracks" class="list compact"></div>
+      </div>
+      <div class="card grow">
+        <h3>Top artistas</h3>
+        <div id="topArtists" class="list compact"></div>
+      </div>
+    </div>
+    <details class="card" open>
+      <summary>Sessões & Rejeição</summary>
+      <div id="sessionInfo" class="summary"></div>
+      <p class="hint" id="skipHint"></p>
+    </details>
+    <div class="card" id="cardRejected" style="display:none">
+      <h3>🚫 Músicas mais rejeitadas (puladas)</h3>
+      <div id="topSkipped" class="list compact"></div>
+      <p class="hint">Baseado no Extended History: skipped=1 ou reason_end=fwdbtn/backbtn/remote ou ms_played &lt; 45% da duração</p>
+    </div>
+    <details class="card" open>
+      <summary>Calendário de intensidade</summary>
+      <div id="heatmap" class="heatmap"></div>
+    </details>
+  </section>
+
+  <!-- LIBRARY / ACERVO -->
+  <section id="tab-library" class="panel">
+    <div class="card">
+      <div class="row">
+        <input id="searchLib" type="search" placeholder="Buscar música, artista, álbum..." class="grow">
+        <select id="sortLib">
+          <option value="recent">Mais recentes</option>
+          <option value="plays">Mais tocadas</option>
+          <option value="artist">Por artista</option>
+          <option value="skipped">Mais puladas</option>
+        </select>
+      </div>
+      <div class="row">
+        <span id="libCount" class="badge">0 registros</span>
+        <button id="btnExport" class="btn ghost small">Exportar JSON</button>
+        <button id="btnClear" class="btn danger small">Apagar tudo</button>
+      </div>
+    </div>
+    <div id="libraryList" class="list"></div>
+    <div class="pagination">
+      <button id="libPrev" class="btn ghost">‹ Anterior</button>
+      <span id="libPageInfo" class="badge">pág 1</span>
+      <button id="libNext" class="btn ghost">Próxima ›</button>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section id="tab-config" class="panel">
+    <div class="card highlight">
+      <h3>① Crie seu app no Spotify</h3>
+      <ol class="steps">
+        <li>Acesse <a href="#" onclick="openExternal('https://developer.spotify.com/dashboard');return false;">developer.spotify.com/dashboard</a> e faça login (precisa Premium)</li>
+        <li>Clique <b>Create app</b> → nome: <code>Spotify Vault</code> → marque <b>Web API</b></li>
+        <li>Em <b>Redirect URIs</b> adicione exatamente:<br>
+          <code id="uri1">spotifyvault://callback</code> <button class="btn ghost tiny" onclick="copyText('spotifyvault://callback')">copiar</button><br>
+          <code id="uri2">http://127.0.0.1:8888/callback</code> <button class="btn ghost tiny" onclick="copyText('http://127.0.0.1:8888/callback')">copiar</button>
+        </li>
+        <li>Copie o <b>Client ID</b> e cole abaixo.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h3>② Login Spotify (PKCE - sem server)</h3>
+      <div class="field">
+        <label>Client ID</label>
+        <input id="clientId" type="text" placeholder="ex: 8a3d..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Redirect URI</label>
+        <select id="redirectUri">
+          <option value="spotifyvault://callback">spotifyvault://callback (recomendado APK)</option>
+          <option value="http://127.0.0.1:8888/callback">http://127.0.0.1:8888/callback</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="btnLogin" class="btn primary">Entrar com Spotify</button>
+        <button id="btnLogout" class="btn ghost">Sair</button>
+      </div>
+      <div id="authStatus" class="status"></div>
+      <div id="tokenInfo" class="mono small"></div>
+    </div>
+
+    <div class="card">
+      <h3>Sincronização</h3>
+      <p class="hint">A API só devolve as <b>50 últimas faixas</b>. O app busca automaticamente às <b>9h, 12h, 15h, 18h e 21h30 Brasília</b> (America/Sao_Paulo) via alarme exato e evita duplicatas. Se tocar &gt;50 músicas entre um intervalo sem sync, pode perder.</p>
+      <div class="row">
+        <button id="btnDoSync" class="btn primary">Sincronizar agora</button>
+        <button id="btnTestApi" class="btn ghost">Testar API</button>
+      </div>
+      <div class="field row">
+        <label class="check"><input type="checkbox" id="autoSync"> Sync automático 9h, 12h, 15h, 18h, 21h30 Brasília</label>
+        <span id="lastSyncLabel" class="badge">último: —</span>
+      </div>
+      <div id="nextAlarmLabel" class="hint"></div>
+      <div class="row">
+        <button class="btn ghost small" onclick="try{Android.openNotificationSettings()}catch(e){toast('Abra em Config do Android')}">🔔 Notificações</button>
+        <button class="btn ghost small" onclick="try{Android.openExactAlarmSettings()}catch(e){}">⏰ Alarmes exatos</button>
+        <button class="btn ghost small" onclick="try{Android.openBatterySettings()}catch(e){}">🔋 Bateria</button>
+        <button class="btn ghost small" onclick="try{Android.openAppInfo()}catch(e){}">⚙️ App info</button>
+      </div>
+      <div id="syncLog" class="mono small"></div>
+    </div>
+
+    <div class="card">
+      <h3>Importar histórico estendido (ZIP ou JSONs)</h3>
+      <p class="hint">Em <a href="#" onclick="openExternal('https://www.spotify.com/account/privacy/');return false;">spotify.com/account/privacy</a> → <b>Baixar dados</b> → solicite <b>Extended streaming history</b>. Você receberá um <b>ZIP</b> com <code>Streaming_History_Audio_*.json</code> e <code>endsong_*.json</code>. Selecione o <b>ZIP direto</b> ou os JSONs extraídos - o app lê ambos.</p>
+      <input id="fileImport" type="file" accept=".json,.zip,application/zip" multiple>
+      <div id="importLog" class="mono small"></div>
+      <div id="importSummary" class="summary"></div>
+    </div>
+
+    <div class="card">
+      <h3>Backup local</h3>
+      <div class="row">
+        <button onclick="exportJson()" class="btn ghost">Exportar plays (JSON)</button>
+        <button onclick="clearAll()" class="btn danger">Apagar banco local</button>
+      </div>
+      <p class="hint">Banco é SQLite local autônomo (<code>spotify_vault.db</code>) via bridge nativa. Nada vai pra nuvem.</p>
+    </div>
+
+    <div class="card">
+      <h3>Sobre rejeição / skip</h3>
+      <p class="hint">O endpoint <code>recently-played</code> só inclui faixas tocadas &gt;30s, sem <code>ms_played</code>. Pulso antes de 30s não entra. Para métrica real de skip (quanto % da música ouviu), só com o histórico estendido que tem <code>ms_played</code> e <code>reason_end = trackdone / fwdbtn / backbtn</code>. Depois de importar, os Insights mostrarão taxa de skip precisa.</p>
+    </div>
+  </section>
+</div>
+
+<div id="toast" class="toast"></div>
+<script src="jszip.min.js" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>

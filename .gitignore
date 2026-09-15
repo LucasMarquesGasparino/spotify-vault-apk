@@ -1,0 +1,27 @@
+
+# --- Android gerado ---
+build/
+gen/
+bin/
+out/
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+# --- keystores / chaves (NUNCA subir) ---
+*.keystore
+*.jks
+*.p12
+debug.keystore
+# --- IDE / SO ---
+.idea/
+.gradle/
+local.properties
+.DS_Store
+Thumbs.db
+# --- temporários ---
+*.log
+*.tmp
+tool-output/
+
