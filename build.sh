@@ -2,7 +2,7 @@
 set -eu
 PROJECT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SDK_DIR=/data/data/com.termux/files/home/.cache/android-api/android-35
-RESOURCE_SDK_DIR=/data/data/com.termux/files/home/.cache/android-api/android-9
+RESOURCE_SDK_DIR=/data/data/com.termux/files/home/android-sdk/platforms/android-34
 TOOLS_DIR=/data/data/com.termux/files/usr/bin
 OUT="$PROJECT_DIR/build"
 GEN="$OUT/gen"

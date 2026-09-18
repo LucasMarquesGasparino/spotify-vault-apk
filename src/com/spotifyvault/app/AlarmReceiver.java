@@ -16,20 +16,26 @@ public class AlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context ctx, Intent intent) {
         Log.i(TAG, "alarm fired, starting sync");
+        try {
+            DatabaseHelper db = new DatabaseHelper(ctx);
+            String enabled = db.getConfig("auto_sync_enabled", "true");
+            String tok = db.getConfig("access_token");
+            db.close();
+            if (!"true".equals(enabled) || tok == null || tok.isEmpty()) {
+                Log.i(TAG, "sync desabilitado ou sem token, pulando");
+                return;
+            }
+        } catch (Exception ignored) {}
         Intent svc = new Intent(ctx, SyncService.class);
         svc.putExtra("from_alarm", true);
         try {
-            // usa startService normal (não foreground) para evitar MissingForegroundServiceTypeException no target 35
-            ctx.startService(svc);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(svc);
+            } else {
+                ctx.startService(svc);
+            }
         } catch (Exception e) {
             Log.e(TAG, "start service failed", e);
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    ctx.startForegroundService(svc);
-                } else {
-                    ctx.startService(svc);
-                }
-            } catch(Exception e2){ Log.e(TAG, "fallback also failed", e2); }
         }
         // Reschedule next alarm
         scheduleExactAlarm(ctx);

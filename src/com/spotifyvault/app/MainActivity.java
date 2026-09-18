@@ -396,7 +396,10 @@ public final class MainActivity extends Activity {
                 String tok = db.getConfig("access_token");
                 if (tok!=null && !tok.isEmpty()) {
                     Intent svc = new Intent(this, SyncService.class);
-                    try { startService(svc); } catch(Exception e){ try{ startForegroundService(svc); }catch(Exception ignored){} }
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(svc);
+                        else startService(svc);
+                    } catch (Exception ignored) {}
                 }
             }
         } catch (Exception ignored) {}

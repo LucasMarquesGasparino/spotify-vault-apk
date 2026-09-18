@@ -11,8 +11,9 @@ public class BootReceiver extends BroadcastReceiver {
         String action = intent.getAction();
         Log.i("VaultBoot", "boot receiver action=" + action);
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) ||
+            Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action) ||
             Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) ||
-            "android.intent.action.PACKAGE_REPLACED".equals(action)) {
+            "android.intent.action.QUICKBOOT_POWERON".equals(action)) {
             DatabaseHelper db = new DatabaseHelper(ctx);
             String enabled = db.getConfig("auto_sync_enabled", "true");
             String hasToken = db.getConfig("access_token");

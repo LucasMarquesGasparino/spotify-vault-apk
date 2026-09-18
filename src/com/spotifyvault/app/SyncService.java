@@ -7,8 +7,10 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -35,13 +37,56 @@ public class SyncService extends Service {
     @Override
     public IBinder onBind(Intent intent) { return null; }
 
+    private PowerManager.WakeLock wakeLock;
+
+    @Override
+    public void onDestroy() {
+        releaseWakeLock();
+        super.onDestroy();
+    }
+
+    private void acquireWakeLock() {
+        try {
+            if (wakeLock == null) {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null) wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SpotifyVault:Sync");
+            }
+            if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire(10 * 60 * 1000L);
+        } catch (Exception e) { Log.w(TAG, "wakelock acquire falhou", e); }
+    }
+
+    private void releaseWakeLock() {
+        try {
+            if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        } catch (Exception ignored) {}
+        wakeLock = null;
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // Evita MissingForegroundServiceTypeException no targetSdk 35 - usa notificação normal, não FGS
+        acquireWakeLock();
+        Notification ongoing = buildOngoingNotification("Sincronizando Spotify Vault...");
         try {
-            NotificationManager nm0 = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            if(nm0!=null) nm0.notify(NOTIF_ID_ONGOING, buildOngoingNotification("Sincronizando Spotify Vault..."));
-        } catch(Exception ignored){}
+            if (Build.VERSION.SDK_INT >= 29) {
+                int fgsType = 0;
+                try {
+                    fgsType = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+                } catch (Exception ignored) {}
+                if (Build.VERSION.SDK_INT >= 34 && fgsType != 0) {
+                    startForeground(NOTIF_ID_ONGOING, ongoing, fgsType);
+                } else {
+                    startForeground(NOTIF_ID_ONGOING, ongoing);
+                }
+            } else {
+                startForeground(NOTIF_ID_ONGOING, ongoing);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "startForeground falhou, usando notify simples", e);
+            try {
+                NotificationManager nm0 = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (nm0 != null) nm0.notify(NOTIF_ID_ONGOING, ongoing);
+            } catch (Exception ignored) {}
+        }
         new Thread(new Runnable() {
             @Override public void run() {
                 int inserted = 0;
@@ -68,18 +113,22 @@ public class SyncService extends Service {
                     } catch (Exception e) {
                         Log.e(TAG, "summary notif error", e);
                     }
-                    // cancela ongoing
+                    // cancela ongoing e sai do foreground
+                    try {
+                        stopForeground(true);
+                    } catch (Exception ignored) {}
                     try {
                         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-                        if(nm!=null) nm.cancel(NOTIF_ID_ONGOING);
-                    } catch(Exception ignored){}
+                        if (nm != null) nm.cancel(NOTIF_ID_ONGOING);
+                    } catch (Exception ignored) {}
+                    releaseWakeLock();
                     // reschedule next alarm garantido mesmo com app fechado
                     AlarmReceiver.scheduleExactAlarm(SyncService.this);
                     stopSelf();
                 }
             }
         }).start();
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     private void createChannel() {
